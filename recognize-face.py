@@ -1,4 +1,3 @@
-import functools
 import threading
 
 import anki_vector
@@ -9,21 +8,19 @@ faces = []
 
 
 def main():
-    evt = threading.Event()
-
-    def on_robot_observed_face(robot, event_type, event):
+    def on_robot_observed_face(_robot, _event_type, _event, _done):
         global faces
 
-        face_id = event.face_id
-        name = event.name
-        if not any(face['face_id'] == face_id for face in faces):
+        face_id = _event.face_id
+        name = _event.name
+        if not any(face["face_id"] == face_id for face in faces):
             print(f"Vector sees a face: {{face_id: {face_id}, name :{name}}}")
 
             if face_id > 0 and name:
-                faces.append({'face_id': face_id, 'name': name})
-                robot.say_text("I see a face!")
-                robot.say_text("Hello " + name)
-                # evt.set()
+                faces.append({"face_id": face_id, "name": name})
+                _robot.behavior.say_text("I see a face!")
+                _robot.behavior.say_text("Hello " + name)
+                _done.set()
 
     args = anki_vector.util.parse_command_args()
 
@@ -37,15 +34,16 @@ def main():
         # Activate the camera display on Vector's face
         robot.vision.enable_display_camera_feed_on_face()
 
-        print("Waiting for face events...")
+        done = threading.Event()
 
         # Create a subscription to 'robot_observed_face' event
         # which will execute the def 'on_robot_observed_face'
-        on_robot_observed_face = functools.partial(on_robot_observed_face, robot)
-        robot.events.subscribe(on_robot_observed_face, Events.robot_observed_face)
+        robot.events.subscribe(on_robot_observed_face, Events.robot_observed_face, done)
+
+        print("Waiting for face events...")
 
         try:
-            if not evt.wait(timeout=10):
+            if not done.wait(timeout=10):
                 if faces:
                     print(f"Vector recognize {len(faces)} face(s): {faces}")
                 else:
